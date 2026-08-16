@@ -227,12 +227,12 @@ async function apiGet(path){
   return res.json();
 }
 
-// ---- Authenticated API via local proxy ----
+// ---- Authenticated API via serverless proxy ----
 // api.trade-tariff.service.gov.uk doesn't support direct browser calls (confirmed: no
-// CORS headers on responses), so the OAuth flow can't run client-side. Instead, when the
-// app is served via server.py, that same-origin process holds the credentials and proxies
-// this one call — this file never sees a client_secret. If the proxy isn't running (e.g.
-// index.html opened directly as a file), this fails harmlessly and falls back to public.
+// CORS headers on responses), so the OAuth flow can't run client-side. Instead, the
+// same-origin Vercel function at PROXY_URL holds the credentials and proxies this one
+// call — this file never sees a client_secret. If the proxy isn't deployed or fails,
+// this fails harmlessly and falls back to the public API.
 
 const PROXY_URL = window.TRADE_TARIFF_PROXY_URL || '';
 const hasProxy = !!PROXY_URL;
@@ -240,7 +240,7 @@ const hasProxy = !!PROXY_URL;
 // Same JSON:API shape as the public v2 endpoint, confirmed by direct testing — reuses
 // all the existing parsing functions (findMeasures, formatDuty, etc) unchanged.
 async function apiGetCommodityViaProxy(code){
-  const res = await fetch(`${PROXY_URL}/commodities/${code}`);
+  const res = await fetch(`${PROXY_URL}?code=${encodeURIComponent(code)}`);
   if(!res.ok) throw new Error(`Proxy request failed: ${res.status}`);
   return res.json();
 }

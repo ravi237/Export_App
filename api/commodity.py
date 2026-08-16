@@ -1,31 +1,23 @@
-#!/usr/bin/env python3
 """
-Local server for the India-UK Export Duty Finder.
+Vercel serverless function: proxies authenticated UK Trade Tariff API calls.
 
-Serves the app's static files (index.html, config.js) AND proxies calls to
-the authenticated UK Trade Tariff API, holding your client_secret here on
-this machine only — it is never sent to the browser.
+Route: /api/commodity?code=<10-digit CTH>
 
-Usage:
-    python3 server.py
-
-Then open:
-    http://localhost:8934/index.html
+Credentials are read from Vercel environment variables (set in the project
+dashboard, never committed to git) — this file never sees them in plaintext
+in the repo, and the browser never sees them at all.
 """
-import http.server
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from http.server import BaseHTTPRequestHandler
 
-try:
-    from proxy_secrets import CLIENT_ID, CLIENT_SECRET
-except ImportError:
-    CLIENT_ID = ""
-    CLIENT_SECRET = ""
+CLIENT_ID = os.environ.get("TRADE_TARIFF_CLIENT_ID", "")
+CLIENT_SECRET = os.environ.get("TRADE_TARIFF_CLIENT_SECRET", "")
 
-PORT = 8934
 TOKEN_URL = "https://auth.id.trade-tariff.service.gov.uk/oauth2/token"
 API_BASE = "https://api.trade-tariff.service.gov.uk/uk/api"
 ACCEPT = "application/vnd.hmrc.2.0+json"
@@ -52,17 +44,15 @@ def get_token():
     return _token_cache["token"]
 
 
-class Handler(http.server.SimpleHTTPRequestHandler):
+class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith("/proxy/commodities/"):
-            code = self.path.rsplit("/", 1)[-1]
-            self.handle_commodity(code)
-        else:
-            super().do_GET()
-
-    def handle_commodity(self, code):
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        code = (query.get("code") or [""])[0]
+        if not code:
+            self.send_json_error(400, "Missing ?code= parameter")
+            return
         if not CLIENT_ID or not CLIENT_SECRET:
-            self.send_json_error(500, "Proxy has no credentials configured — see proxy_secrets.py")
+            self.send_json_error(500, "Proxy has no credentials configured — set TRADE_TARIFF_CLIENT_ID / TRADE_TARIFF_CLIENT_SECRET in Vercel project settings")
             return
         try:
             token = get_token()
@@ -86,15 +76,3 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps({"error": message}).encode())
-
-    def log_message(self, fmt, *args):
-        pass  # quiet by default; comment out to see request logs
-
-
-if __name__ == "__main__":
-    if not CLIENT_ID or not CLIENT_SECRET:
-        print("Note: no credentials in proxy_secrets.py — the app will still work,")
-        print("      just via the public API instead of the authenticated one.\n")
-    print(f"Serving the app at: http://localhost:{PORT}/index.html")
-    print("Press Ctrl+C to stop.\n")
-    http.server.HTTPServer(("localhost", PORT), Handler).serve_forever()
