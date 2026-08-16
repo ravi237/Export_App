@@ -92,8 +92,6 @@
   .official-link{display:inline-block; margin-top:10px; font-size:0.82rem; color:var(--accent); text-decoration:none; font-weight:600;}
   .official-link:hover{text-decoration:underline;}
 
-  .compliance-section{margin-top:16px; padding-top:14px; border-top:1px solid var(--border);}
-  .compliance-title{font-weight:600; font-size:0.88rem; margin-bottom:8px;}
   .compliance-item{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:8px;}
   .compliance-head{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
   .compliance-type{font-weight:600; font-size:0.85rem;}
@@ -106,6 +104,27 @@
   .compliance-action{color:var(--text-dim);}
   .compliance-empty{font-size:0.85rem; color:var(--text-dim);}
   .compliance-caveat{margin-top:10px; font-size:0.76rem; color:var(--text-dim); font-style:italic;}
+
+  .tabs{display:flex; gap:4px; margin-top:14px; border-bottom:1px solid var(--border);}
+  .tab-btn{
+    background:none; border:none; cursor:pointer; padding:9px 4px; margin-right:18px;
+    font-size:0.86rem; font-weight:600; color:var(--text-dim); border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--accent); border-bottom-color:var(--accent);}
+  .tab-panel{padding-top:16px;}
+  .tab-panel[hidden]{display:none;}
+
+  .tv-stats{display:flex; gap:10px; flex-wrap:wrap;}
+  .tv-stat{
+    flex:1; min-width:160px; border:1px solid var(--border); border-radius:10px; padding:12px 14px; background:var(--bg);
+  }
+  .tv-stat.highlight{background:var(--accent-dim); border-color:var(--accent);}
+  .tv-label{font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim);}
+  .tv-value{font-size:1.3rem; font-weight:650; margin-top:2px;}
+  .tv-note{margin-top:12px; font-size:0.78rem; color:var(--text-dim);}
+  .tv-empty{font-size:0.85rem; color:var(--text-dim);}
 
   .live-tag, .offline-tag{
     display:inline-block; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
@@ -445,11 +464,8 @@ async function showDetail(code){
 function renderComplianceSection(compliance){
   if(!compliance || !compliance.length){
     return `
-      <div class="compliance-section">
-        <div class="compliance-title">Import compliance</div>
-        <div class="compliance-empty">No certificate, licensing, or restriction requirements currently published for this line beyond standard customs entry.</div>
-        <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>
-      </div>`;
+      <div class="compliance-empty">No certificate, licensing, or restriction requirements currently published for this line beyond standard customs entry.</div>
+      <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>`;
   }
   const items = compliance.map(c=>`
     <div class="compliance-item">
@@ -467,11 +483,71 @@ function renderComplianceSection(compliance){
     </div>
   `).join('');
   return `
-    <div class="compliance-section">
-      <div class="compliance-title">Import compliance</div>
-      ${items}
-      <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>
-    </div>`;
+    ${items}
+    <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>`;
+}
+
+function formatGBP(n){
+  return '£' + Math.round(n).toLocaleString('en-GB');
+}
+
+async function apiGetTradeValue(code){
+  const url = window.TRADE_VALUE_URL || '/api/tradevalue';
+  const res = await fetch(`${url}?code=${encodeURIComponent(code)}`);
+  if(!res.ok) throw new Error(`Trade value request failed: ${res.status}`);
+  return res.json();
+}
+
+async function loadTradeValue(panel, code){
+  panel.dataset.loaded = 'pending';
+  panel.innerHTML = loadingHtml();
+  try {
+    const data = await apiGetTradeValue(code);
+    panel.dataset.loaded = 'true';
+    if(!data.worldValue){
+      panel.innerHTML = `<div class="tv-empty">No recorded UK imports found under this line's trade-statistics code (CN8 ${data.cn8}) for ${data.year}.</div>`;
+      return;
+    }
+    const shareText = data.indiaSharePct !== null ? data.indiaSharePct.toFixed(2) + '%' : '—';
+    panel.innerHTML = `
+      <div class="tv-stats">
+        <div class="tv-stat">
+          <div class="tv-label">UK imports from World</div>
+          <div class="tv-value">${formatGBP(data.worldValue)}</div>
+        </div>
+        <div class="tv-stat">
+          <div class="tv-label">UK imports from India</div>
+          <div class="tv-value">${formatGBP(data.indiaValue)}</div>
+        </div>
+        <div class="tv-stat highlight">
+          <div class="tv-label">India's share</div>
+          <div class="tv-value">${shareText}</div>
+        </div>
+      </div>
+      <div class="tv-note">Calendar year ${data.year} · CN8 code ${data.cn8} (this trade-statistics code can group several named sub-varieties of this CTH together) · Source: HMRC Overseas Trade Statistics (uktradeinfo.com)</div>
+    `;
+  } catch(err){
+    console.error(err);
+    panel.dataset.loaded = 'false';
+    panel.innerHTML = `<div class="tv-empty">Couldn't fetch UK trade statistics right now — click the tab again to retry.</div>`;
+  }
+}
+
+function wireTabs(code){
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabBtns.forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.hidden = true);
+      btn.classList.add('active');
+      const panel = document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`);
+      if(!panel) return;
+      panel.hidden = false;
+      if(btn.dataset.tab === 'tradevalue' && panel.dataset.loaded !== 'true' && panel.dataset.loaded !== 'pending'){
+        loadTradeValue(panel, code);
+      }
+    });
+  });
 }
 
 function renderDetailCard({code, desc, breadcrumb, mfnDuty, ftaBlock, source, compliance}){
@@ -512,27 +588,43 @@ function renderDetailCard({code, desc, breadcrumb, mfnDuty, ftaBlock, source, co
         </div>
         <div class="cth-tag">CTH ${code}</div>
       </div>
-      <div class="rates">
-        <div class="rate-box">
-          <div class="rl">MFN Rate (Rest of World)</div>
-          <div class="rv">${mfnDuty.text}</div>
-        </div>
-        <div class="rate-box">
-          <div class="rl">FTA Rate (India, CETA)</div>
-          <div class="rv">${ftaRateText}</div>
-        </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="duty">Duty & Rates</button>
+        <button class="tab-btn" data-tab="compliance">Import Compliance</button>
+        <button class="tab-btn" data-tab="tradevalue">Trade Value</button>
       </div>
-      ${saveHtml}
-      ${dateLine}
-      ${conditionHtml}
-      ${legalHtml}
-      ${renderComplianceSection(compliance)}
+
+      <div class="tab-panel" data-panel="duty">
+        <div class="rates">
+          <div class="rate-box">
+            <div class="rl">MFN Rate (Rest of World)</div>
+            <div class="rv">${mfnDuty.text}</div>
+          </div>
+          <div class="rate-box">
+            <div class="rl">FTA Rate (India, CETA)</div>
+            <div class="rv">${ftaRateText}</div>
+          </div>
+        </div>
+        ${saveHtml}
+        ${dateLine}
+        ${conditionHtml}
+        ${legalHtml}
+      </div>
+
+      <div class="tab-panel" data-panel="compliance" hidden>
+        ${renderComplianceSection(compliance)}
+      </div>
+
+      <div class="tab-panel" data-panel="tradevalue" hidden data-loaded="false"></div>
+
       <a class="official-link" href="${SITE_BASE}/commodities/${code}" target="_blank" rel="noopener">View official listing on trade-tariff.service.gov.uk ↗</a>
     </div>
   `;
 
   const back = document.getElementById('backBtn');
   if(back) back.addEventListener('click', goBack);
+  wireTabs(code);
 }
 
 function offlineDetailFallback(code){

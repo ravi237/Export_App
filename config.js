@@ -8,3 +8,8 @@
 // public (unauthenticated) API — no need to change anything.
 
 window.TRADE_TARIFF_PROXY_URL = "/api/commodity";
+
+// UK trade-value data (world vs India import value) — HMRC's free public
+// Overseas Trade Statistics API, proxied the same way since it also has no
+// direct-browser (CORS) access. No credentials needed for this one.
+window.TRADE_VALUE_URL = "/api/tradevalue";
