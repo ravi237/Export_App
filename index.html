@@ -126,6 +126,22 @@
   .tv-note{margin-top:12px; font-size:0.78rem; color:var(--text-dim);}
   .tv-empty{font-size:0.85rem; color:var(--text-dim);}
 
+  .tv-top-title{font-weight:600; font-size:0.85rem; margin-top:18px; margin-bottom:8px;}
+  .tv-top-row{
+    display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--border);
+  }
+  .tv-top-row:first-of-type{border-top:none;}
+  .tv-top-rank{
+    width:22px; height:22px; border-radius:50%; background:var(--chip-bg); color:var(--chip-text);
+    font-size:0.75rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .tv-top-row.is-india .tv-top-rank{background:var(--accent); color:#fff;}
+  .tv-top-name{flex:1; font-size:0.88rem; font-weight:600;}
+  .tv-top-bar-wrap{flex:2; min-width:100px; background:var(--chip-bg); border-radius:4px; height:6px; overflow:hidden;}
+  .tv-top-bar{height:100%; background:var(--accent); border-radius:4px;}
+  .tv-top-figures{text-align:right; min-width:110px; font-size:0.82rem; color:var(--text-dim);}
+  .tv-top-figures strong{color:var(--text); font-size:0.88rem;}
+
   .live-tag, .offline-tag{
     display:inline-block; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
     padding:3px 8px; border-radius:6px; margin-left:8px; vertical-align:middle;
@@ -509,6 +525,19 @@ async function loadTradeValue(panel, code){
       return;
     }
     const shareText = data.indiaSharePct !== null ? data.indiaSharePct.toFixed(2) + '%' : '—';
+    const topCountries = data.topCountries || [];
+    const topShare = topCountries.length ? topCountries[0].sharePct : 0;
+    const topHtml = topCountries.length ? `
+      <div class="tv-top-title">Top ${topCountries.length} exporting countries to the UK</div>
+      ${topCountries.map((c, idx)=>`
+        <div class="tv-top-row ${c.name==='India' ? 'is-india' : ''}">
+          <div class="tv-top-rank">${idx+1}</div>
+          <div class="tv-top-name">${c.name}</div>
+          <div class="tv-top-bar-wrap"><div class="tv-top-bar" style="width:${topShare ? (c.sharePct/topShare*100) : 0}%"></div></div>
+          <div class="tv-top-figures"><strong>${c.sharePct.toFixed(2)}%</strong><br>${formatGBP(c.value)}</div>
+        </div>
+      `).join('')}
+    ` : '';
     panel.innerHTML = `
       <div class="tv-stats">
         <div class="tv-stat">
@@ -524,6 +553,7 @@ async function loadTradeValue(panel, code){
           <div class="tv-value">${shareText}</div>
         </div>
       </div>
+      ${topHtml}
       <div class="tv-note">Calendar year ${data.year} · CN8 code ${data.cn8} (this trade-statistics code can group several named sub-varieties of this CTH together) · Source: HMRC Overseas Trade Statistics (uktradeinfo.com)</div>
     `;
   } catch(err){

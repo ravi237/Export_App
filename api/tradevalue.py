@@ -20,8 +20,10 @@ from http.server import BaseHTTPRequestHandler
 OTS_BASE = "https://api.uktradeinfo.com"
 INDIA_COUNTRY_ID = 664
 IMPORT_FLOW_TYPES = (1, 3)  # EU Imports, Non-EU Imports — together, imports from the world
+TOP_N = 3
 
 _year_cache = {"year": None, "checked_at": 0}
+_country_cache = {"map": None, "checked_at": 0}
 
 
 def api_get(path):
@@ -45,18 +47,25 @@ def last_complete_calendar_year():
     return complete_year
 
 
-def sum_value(cn8, year, country_id=None):
+def country_name_map():
+    # Static reference data (263 countries) — cache for the life of the warm instance.
+    if _country_cache["map"] is not None and time.time() - _country_cache["checked_at"] < 86400:
+        return _country_cache["map"]
+    data = api_get("/Country")
+    m = {c["CountryId"]: (c.get("CountryName") or "").strip() for c in data.get("value", [])}
+    _country_cache["map"] = m
+    _country_cache["checked_at"] = time.time()
+    return m
+
+
+def country_breakdown(cn8, year):
+    # One grouped query gives every country's import value for this commodity+year —
+    # world total, India's figure, and the top suppliers all derive from this single result.
     flow_filter = " or ".join(f"FlowTypeId eq {f}" for f in IMPORT_FLOW_TYPES)
-    filter_parts = [f"CommodityId eq {cn8}", f"MonthId ge {year}01", f"MonthId le {year}12"]
-    if country_id is not None:
-        filter_parts.append(f"CountryId eq {country_id}")
-    filter_parts.append(f"({flow_filter})")
-    filter_expr = " and ".join(filter_parts)
-    query = f"/OTS?$apply=filter({filter_expr})/aggregate(Value with sum as Total)"
+    filter_expr = f"CommodityId eq {cn8} and MonthId ge {year}01 and MonthId le {year}12 and ({flow_filter})"
+    query = f"/OTS?$apply=filter({filter_expr})/groupby((CountryId),aggregate(Value with sum as Total))"
     data = api_get(query)
-    rows = data.get("value", [])
-    total = rows[0].get("Total") if rows else None
-    return total or 0.0
+    return [(r["CountryId"], r.get("Total") or 0.0) for r in data.get("value", [])]
 
 
 class handler(BaseHTTPRequestHandler):
@@ -69,14 +78,28 @@ class handler(BaseHTTPRequestHandler):
         cn8 = code[:8]
         try:
             year = last_complete_calendar_year()
-            world = sum_value(cn8, year)
-            india = sum_value(cn8, year, INDIA_COUNTRY_ID)
+            rows = country_breakdown(cn8, year)
+            world = sum(v for _, v in rows)
+            india = next((v for cid, v in rows if cid == INDIA_COUNTRY_ID), 0.0)
+
+            names = country_name_map()
+            top_rows = sorted(rows, key=lambda r: -r[1])[:TOP_N]
+            top_countries = [
+                {
+                    "name": names.get(cid, f"Country {cid}"),
+                    "value": value,
+                    "sharePct": (value / world * 100) if world else None,
+                }
+                for cid, value in top_rows if value > 0
+            ]
+
             result = {
                 "cn8": cn8,
                 "year": year,
                 "worldValue": world,
                 "indiaValue": india,
                 "indiaSharePct": (india / world * 100) if world else None,
+                "topCountries": top_countries,
             }
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
