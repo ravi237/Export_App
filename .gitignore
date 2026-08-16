@@ -1,0 +1,9 @@
+# Secrets — never publish these
+proxy_secrets.py
+
+# Local tooling, not part of the app
+cloudflared
+.claude/
+.DS_Store
+__pycache__/
+*.pyc

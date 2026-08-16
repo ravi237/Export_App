@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India–UK Export Duty Finder</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --panel:#ffffff; --border:#dde1dc; --text:#1c231f; --text-dim:#5b6660;
+    --accent:#0f6b4c; --accent-dim:#e6f2ec; --warn-bg:#fdf3e3; --warn-border:#e8c785; --warn-text:#6b4c0f;
+    --save-bg:#e9f7ee; --save-text:#0f6b4c; --same-bg:#eef0ee; --same-text:#5b6660;
+    --chip-bg:#eef1ed; --chip-text:#3a423d; --chip-active-bg:#0f6b4c; --chip-active-text:#fff;
+    --shadow: 0 1px 2px rgba(20,30,25,0.06), 0 4px 12px rgba(20,30,25,0.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12160f; --panel:#181e17; --border:#2a332a; --text:#e9ede8; --text-dim:#9aa79d;
+      --accent:#3fbf8a; --accent-dim:#173626; --warn-bg:#2a2312; --warn-border:#5c4a17; --warn-text:#e8c785;
+      --save-bg:#123424; --save-text:#3fbf8a; --same-bg:#1e241c; --same-text:#9aa79d;
+      --chip-bg:#202721; --chip-text:#c7d1c8; --chip-active-bg:#3fbf8a; --chip-active-text:#0b120d;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.35);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.45;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:28px 20px 64px;}
+  header h1{font-size:1.6rem; margin:0 0 4px; letter-spacing:-0.01em;}
+  header p.sub{margin:0 0 18px; color:var(--text-dim); font-size:0.95rem;}
+
+  .search-panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:18px; box-shadow:var(--shadow); margin-bottom:10px;
+  }
+  .search-row{display:flex; gap:10px;}
+  #searchInput{
+    flex:1; padding:13px 16px; font-size:1rem; border-radius:10px;
+    border:1px solid var(--border); background:var(--bg); color:var(--text); outline:none;
+  }
+  #searchInput:focus{border-color:var(--accent);}
+  #searchBtn{
+    padding:0 22px; border-radius:10px; border:none; background:var(--accent); color:#fff;
+    font-weight:600; cursor:pointer; font-size:0.95rem;
+  }
+  #searchBtn:hover{opacity:0.92;}
+  #searchBtn:disabled{opacity:0.6; cursor:default;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+  .chip{
+    padding:6px 13px; border-radius:999px; background:var(--chip-bg); color:var(--chip-text);
+    font-size:0.82rem; cursor:pointer; border:1px solid transparent; user-select:none;
+  }
+  .chip:hover{border-color:var(--accent);}
+
+  .status-line{color:var(--text-dim); font-size:0.85rem; margin:10px 2px 14px; min-height:1.2em;}
+  .status-line.err{color:var(--warn-text);}
+
+  .cards, .candidate-list{display:flex; flex-direction:column; gap:10px;}
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
+  .card-title{font-weight:600; font-size:1.02rem;}
+  .card-meta{color:var(--text-dim); font-size:0.82rem; margin-top:2px;}
+  .cth-tag{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.82rem;
+    background:var(--chip-bg); color:var(--chip-text); padding:3px 8px; border-radius:6px; white-space:nowrap;
+  }
+  .rates{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .rate-box{
+    flex:1; min-width:150px; border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--bg);
+  }
+  .rate-box .rl{font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim);}
+  .rate-box .rv{font-size:1.15rem; font-weight:650; margin-top:2px;}
+  .save-pill{
+    display:inline-block; margin-top:10px; padding:4px 10px; border-radius:999px; font-size:0.8rem; font-weight:600;
+    background:var(--save-bg); color:var(--save-text);
+  }
+  .save-pill.none{background:var(--same-bg); color:var(--same-text);}
+  .staging{margin-top:8px; font-size:0.8rem; color:var(--text-dim);}
+  .staging.future{color:var(--warn-text);}
+  .staging strong{font-weight:650;}
+  .condition-note{
+    margin-top:10px; font-size:0.8rem; color:var(--warn-text); background:var(--warn-bg);
+    border:1px solid var(--warn-border); border-radius:8px; padding:8px 10px;
+  }
+  .legal-line{margin-top:10px; font-size:0.78rem; color:var(--text-dim);}
+  .legal-line a{color:inherit;}
+  .official-link{display:inline-block; margin-top:10px; font-size:0.82rem; color:var(--accent); text-decoration:none; font-weight:600;}
+  .official-link:hover{text-decoration:underline;}
+
+  .compliance-section{margin-top:16px; padding-top:14px; border-top:1px solid var(--border);}
+  .compliance-title{font-weight:600; font-size:0.88rem; margin-bottom:8px;}
+  .compliance-item{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:8px;}
+  .compliance-head{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
+  .compliance-type{font-weight:600; font-size:0.85rem;}
+  .scope-tag{font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em; padding:2px 7px; border-radius:6px; background:var(--chip-bg); color:var(--chip-text); white-space:nowrap;}
+  .scope-tag.scope-in{background:var(--warn-bg); color:var(--warn-text);}
+  .compliance-footnote{margin-top:6px; font-size:0.8rem; color:var(--text-dim); line-height:1.55;}
+  .compliance-footnote a{color:var(--accent);}
+  .compliance-condition{margin-top:6px; font-size:0.8rem; color:var(--text); padding-top:6px; border-top:1px dashed var(--border);}
+  .compliance-condition:first-of-type{border-top:none; padding-top:0;}
+  .compliance-action{color:var(--text-dim);}
+  .compliance-empty{font-size:0.85rem; color:var(--text-dim);}
+  .compliance-caveat{margin-top:10px; font-size:0.76rem; color:var(--text-dim); font-style:italic;}
+
+  .live-tag, .offline-tag{
+    display:inline-block; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+    padding:3px 8px; border-radius:6px; margin-left:8px; vertical-align:middle;
+  }
+  .live-tag{background:var(--save-bg); color:var(--save-text);}
+  .offline-tag{background:var(--warn-bg); color:var(--warn-text);}
+
+  .back-btn{
+    background:none; border:none; color:var(--accent); font-size:0.85rem; cursor:pointer; padding:0;
+    margin-bottom:12px; display:inline-flex; align-items:center; gap:4px;
+  }
+  .back-btn:hover{text-decoration:underline;}
+
+  .candidate-row{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 16px;
+    cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:12px; box-shadow:var(--shadow);
+  }
+  .candidate-row:hover{border-color:var(--accent);}
+  .candidate-desc{font-weight:600; font-size:0.92rem;}
+  .candidate-breadcrumb{color:var(--text-dim); font-size:0.76rem; margin-top:2px;}
+
+  .loading-wrap{padding:40px 10px; text-align:center; color:var(--text-dim); font-size:0.9rem;}
+  .spinner{
+    width:22px; height:22px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent);
+    animation:spin 0.8s linear infinite; margin:0 auto 10px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .empty{text-align:center; color:var(--text-dim); padding:50px 10px; font-size:0.95rem;}
+  footer{margin-top:34px; color:var(--text-dim); font-size:0.78rem; text-align:center;}
+  footer a{color:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>India–UK Export Duty Finder</h1>
+    <p class="sub">Look up a commodity's UK import duty — the standard (MFN) rate versus the India-UK CETA preferential rate — using live data from the UK government's Trade Tariff service.</p>
+  </header>
+
+  <div class="search-panel">
+    <div class="search-row">
+      <input id="searchInput" type="text" placeholder="Search by commodity name or CTH code (e.g. &quot;basmati rice&quot; or &quot;61091000&quot;)">
+      <button id="searchBtn">Search</button>
+    </div>
+    <div class="chips" id="exampleRow"></div>
+  </div>
+
+  <div class="status-line" id="statusLine"></div>
+  <div id="results"></div>
+</div>
+
+<footer>Live rates: <a href="https://www.trade-tariff.service.gov.uk/" target="_blank" rel="noopener">UK Trade Tariff service</a> (HMRC / Department for Business and Trade) · not a substitute for professional customs advice</footer>
+
+<script src="config.js"></script>
+<script>
+const API_BASE = 'https://www.trade-tariff.service.gov.uk/api/v2';
+const SITE_BASE = 'https://www.trade-tariff.service.gov.uk';
+const MFN_GEO = '1011';
+const IN_GEO = 'IN';
+const MFN_TYPE = 'Third country duty';
+const FTA_TYPE = 'Tariff preference';
+
+const EXAMPLES = ['Basmati rice', 'Black tea', 'Cotton T-shirts', 'Leather footwear', 'Cut diamonds', 'Turmeric'];
+
+// Bundled offline fallback only — used solely if the live API is unreachable.
+const OFFLINE_DATA = [
+  {cth:"09024010", name:"Black Tea, CTC", mfn:0, fta:0},
+  {cth:"09024030", name:"Green Tea", mfn:0, fta:0},
+  {cth:"09042110", name:"Black Pepper, whole", mfn:0, fta:0},
+  {cth:"09103010", name:"Turmeric, whole", mfn:0, fta:0},
+  {cth:"09103020", name:"Turmeric, powder", mfn:0, fta:0},
+  {cth:"10063010", name:"Basmati Rice", mfn:8, fta:0},
+  {cth:"10063090", name:"Non-Basmati Rice", mfn:8, fta:0},
+  {cth:"03061700", name:"Frozen Shrimp / Prawns", mfn:8, fta:0},
+  {cth:"52051200", name:"Cotton Yarn, single, uncombed", mfn:4, fta:0},
+  {cth:"61091000", name:"Cotton T-Shirts, knitted", mfn:12, fta:0},
+  {cth:"62034200", name:"Men's Cotton Trousers", mfn:12, fta:0},
+  {cth:"63023100", name:"Cotton Bed Linen", mfn:12, fta:0},
+  {cth:"57011010", name:"Hand-Knotted Woollen Carpets", mfn:8, fta:0},
+  {cth:"64039100", name:"Leather Footwear, ankle-covering", mfn:8, fta:0},
+  {cth:"64039990", name:"Leather Footwear, other", mfn:17, fta:0},
+  {cth:"42021100", name:"Leather Handbags", mfn:3, fta:0},
+  {cth:"71023900", name:"Cut & Polished Diamonds", mfn:0, fta:0},
+  {cth:"71131930", name:"Gold Jewellery, unstudded", mfn:2.5, fta:0},
+  {cth:"30049099", name:"Generic Medicaments, other", mfn:0, fta:0},
+  {cth:"87083000", name:"Motor Vehicle Brakes & Parts", mfn:3, fta:0},
+  {cth:"73181500", name:"Screws, Bolts, Nuts of Iron/Steel", mfn:3.7, fta:0},
+  {cth:"29332990", name:"Organic Chemical Compound, other", mfn:5.5, fta:0},
+  {cth:"44201090", name:"Wood Carvings & Statuettes", mfn:0, fta:0},
+  {cth:"69120010", name:"Ceramic Tableware", mfn:8, fta:0},
+  {cth:"94036000", name:"Wooden Furniture, other", mfn:0, fta:0},
+];
+
+const resultsEl = document.getElementById('results');
+const statusEl = document.getElementById('statusLine');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+
+function setStatus(text, isErr){
+  statusEl.textContent = text || '';
+  statusEl.classList.toggle('err', !!isErr);
+}
+function loadingHtml(){
+  return '<div class="loading-wrap"><div class="spinner"></div>Fetching live data…</div>';
+}
+function emptyHtml(msg){
+  return `<div class="empty">${msg}</div>`;
+}
+function fmtDate(dt){
+  return dt.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+}
+function fmtPct(n){ return n===0 ? '0%' : n+'%'; }
+
+async function apiGet(path){
+  const res = await fetch(`${API_BASE}/${path}`);
+  if(!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
+
+// ---- Authenticated API via local proxy ----
+// api.trade-tariff.service.gov.uk doesn't support direct browser calls (confirmed: no
+// CORS headers on responses), so the OAuth flow can't run client-side. Instead, when the
+// app is served via server.py, that same-origin process holds the credentials and proxies
+// this one call — this file never sees a client_secret. If the proxy isn't running (e.g.
+// index.html opened directly as a file), this fails harmlessly and falls back to public.
+
+const PROXY_URL = window.TRADE_TARIFF_PROXY_URL || '';
+const hasProxy = !!PROXY_URL;
+
+// Same JSON:API shape as the public v2 endpoint, confirmed by direct testing — reuses
+// all the existing parsing functions (findMeasures, formatDuty, etc) unchanged.
+async function apiGetCommodityViaProxy(code){
+  const res = await fetch(`${PROXY_URL}/commodities/${code}`);
+  if(!res.ok) throw new Error(`Proxy request failed: ${res.status}`);
+  return res.json();
+}
+
+function getComponents(json, measureId){
+  return (json.included||[]).filter(i=>i.type==='measure_component' && i.id.startsWith(measureId+'-'));
+}
+
+function formatDuty(components){
+  if(!components.length) return {text:'Free (0%)', numeric:0};
+  const parts = components.map(c=>{
+    const a = c.attributes;
+    if(a.duty_expression_abbreviation === '%'){
+      return {text:(a.duty_amount ?? 0)+'%', numeric:a.duty_amount ?? 0};
+    }
+    if(a.duty_expression_abbreviation === 'UNSUP' || a.duty_amount === null) return null;
+    const unit = a.measurement_unit_code ? ' / '+a.measurement_unit_code : '';
+    return {text:(a.monetary_unit_abbreviation||'')+(a.duty_amount ?? '')+unit, numeric:null};
+  }).filter(Boolean);
+  if(!parts.length) return {text:'Free (0%)', numeric:0};
+  const numericParts = parts.filter(p=>p.numeric!==null);
+  const allPercent = numericParts.length === parts.length;
+  return {
+    text: parts.map(p=>p.text).join(' + '),
+    numeric: allPercent ? numericParts.reduce((s,p)=>s+p.numeric,0) : null
+  };
+}
+
+function findMeasures(json, geoId, typeDesc){
+  const map = {};
+  (json.included||[]).forEach(i=>{ map[i.type+':'+i.id] = i; });
+  return (json.included||[]).filter(i=>{
+    if(i.type!=='measure') return false;
+    const rel = i.relationships||{};
+    if(rel.geographical_area?.data?.id !== geoId) return false;
+    const mt = map['measure_type:'+rel.measure_type?.data?.id];
+    return mt && mt.attributes.description === typeDesc;
+  });
+}
+
+function pickCurrentAndNext(measures){
+  const now = new Date();
+  const withDates = measures.map(m=>({
+    m,
+    start: new Date(m.attributes.effective_start_date),
+    end: m.attributes.effective_end_date ? new Date(m.attributes.effective_end_date) : null
+  })).sort((a,b)=>a.start-b.start);
+  let current=null, next=null;
+  for(const item of withDates){
+    if(item.start<=now && (!item.end || item.end>=now)) current=item;
+    else if(item.start>now && !next) next=item;
+  }
+  return {current, next};
+}
+
+// Duty/tariff measure types are already shown in the rate boxes — everything else
+// (certificates, licensing, restrictions, prohibitions, sanctions) is compliance info.
+const DUTY_MEASURE_TYPES = new Set([
+  'Third country duty', 'Tariff preference', 'Value added tax',
+  'Preferential tariff quota', 'Non preferential tariff quota', 'Supplementary unit'
+]);
+
+function findComplianceMeasures(json){
+  const map = {};
+  (json.included||[]).forEach(i=>{ map[i.type+':'+i.id] = i; });
+  const now = new Date();
+
+  const items = (json.included||[]).filter(i=>{
+    if(i.type!=='measure') return false;
+    const a = i.attributes;
+    if(!a.import) return false; // export-only controls don't apply to a UK importer
+    const rel = i.relationships||{};
+    const geoId = rel.geographical_area?.data?.id;
+    if(geoId !== IN_GEO && geoId !== MFN_GEO) return false; // India-specific or applies to all countries
+    const start = new Date(a.effective_start_date);
+    const end = a.effective_end_date ? new Date(a.effective_end_date) : null;
+    if(start > now || (end && end < now)) return false; // not currently in force
+    const mt = map['measure_type:'+rel.measure_type?.data?.id];
+    const mtDesc = mt?.attributes?.description;
+    return mtDesc && !DUTY_MEASURE_TYPES.has(mtDesc);
+  }).map(m=>{
+    const rel = m.relationships||{};
+    const mt = map['measure_type:'+rel.measure_type?.data?.id];
+    const geoId = rel.geographical_area?.data?.id;
+    const footnotes = (rel.footnotes?.data||[])
+      .map(f=>map['footnote:'+f.id])
+      .filter(Boolean)
+      .map(f=>f.attributes.description);
+    const seenConditions = new Set();
+    const conditions = (rel.measure_conditions?.data||[])
+      .map(c=>map['measure_condition:'+c.id])
+      .filter(Boolean)
+      .map(c=>({
+        certificate: c.attributes.certificate_description,
+        documentCode: c.attributes.document_code,
+        action: c.attributes.action
+      }))
+      .filter(c=>c.certificate || c.documentCode)
+      .filter(c=>{
+        const key = c.documentCode + '|' + c.certificate + '|' + c.action;
+        if(seenConditions.has(key)) return false;
+        seenConditions.add(key);
+        return true;
+      });
+    return {
+      type: mt?.attributes?.description || 'Import condition',
+      scope: geoId === IN_GEO ? 'India-specific' : 'All countries',
+      footnotes,
+      conditions
+    };
+  });
+
+  // Same requirement is often attached to more than one date-scoped measure — dedupe.
+  const seen = new Set();
+  return items.filter(it=>{
+    const key = it.type + '|' + it.scope + '|' + it.footnotes.join('|');
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildBreadcrumb(json){
+  const included = json.included||[];
+  const chapter = included.find(i=>i.type==='chapter');
+  const heading = included.find(i=>i.type==='heading');
+  const parts = [chapter?.attributes?.description, heading?.attributes?.description].filter(Boolean);
+  return parts.join(' › ');
+}
+
+function legalActFor(json, measureId){
+  const included = json.included||[];
+  const measure = included.find(i=>i.type==='measure' && String(i.id)===String(measureId));
+  const laId = measure?.relationships?.legal_acts?.data?.[0]?.id;
+  return included.find(i=>i.type==='legal_act' && i.id===laId);
+}
+
+// ---- Detail rendering ----
+
+let navStack = []; // stack of {list, query} snapshots, for multi-level "back"
+
+function goBack(){
+  const prev = navStack.pop();
+  if(prev) renderCandidateList(prev.list, prev.query);
+}
+
+async function showDetail(code){
+  setStatus(`Fetching live rate for CTH ${code}…`);
+  resultsEl.innerHTML = loadingHtml();
+
+  let json, source = 'public';
+  if(hasProxy){
+    try {
+      json = await apiGetCommodityViaProxy(code);
+      source = 'oauth';
+    } catch(err){
+      console.warn('Proxy lookup failed, falling back to public API:', err);
+    }
+  }
+
+  try {
+    if(!json){
+      json = await apiGet(`commodities/${code}.json`);
+      source = 'public';
+    }
+    const data = json.data;
+    const desc = data.attributes.description_plain || data.attributes.description;
+    const breadcrumb = buildBreadcrumb(json);
+
+    const mfnPick = pickCurrentAndNext(findMeasures(json, MFN_GEO, MFN_TYPE));
+    const ftaPick = pickCurrentAndNext(findMeasures(json, IN_GEO, FTA_TYPE));
+
+    const mfnDuty = mfnPick.current
+      ? formatDuty(getComponents(json, String(mfnPick.current.m.id)))
+      : {text:'Not published for this line', numeric:null};
+
+    let ftaBlock;
+    if(ftaPick.current){
+      const duty = formatDuty(getComponents(json, String(ftaPick.current.m.id)));
+      const hasConditions = (ftaPick.current.m.relationships?.measure_conditions?.data||[]).length > 0;
+      const legalAct = legalActFor(json, ftaPick.current.m.id);
+      ftaBlock = {status:'active', duty, since:ftaPick.current.start, hasConditions, legalAct};
+    } else if(ftaPick.next){
+      const duty = formatDuty(getComponents(json, String(ftaPick.next.m.id)));
+      ftaBlock = {status:'upcoming', duty, from:ftaPick.next.start};
+    } else {
+      ftaBlock = {status:'none'};
+    }
+
+    const compliance = findComplianceMeasures(json);
+
+    renderDetailCard({code, desc, breadcrumb, mfnDuty, ftaBlock, source, compliance});
+    setStatus(source === 'oauth'
+      ? `Live data fetched via your authenticated Trade Tariff API credentials just now.`
+      : `Live data fetched from the UK government's public Trade Tariff API just now.`);
+  } catch(err){
+    console.error(err);
+    offlineDetailFallback(code);
+  }
+}
+
+function renderComplianceSection(compliance){
+  if(!compliance || !compliance.length){
+    return `
+      <div class="compliance-section">
+        <div class="compliance-title">Import compliance</div>
+        <div class="compliance-empty">No certificate, licensing, or restriction requirements currently published for this line beyond standard customs entry.</div>
+        <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>
+      </div>`;
+  }
+  const items = compliance.map(c=>`
+    <div class="compliance-item">
+      <div class="compliance-head">
+        <span class="compliance-type">${c.type}</span>
+        <span class="scope-tag ${c.scope==='India-specific' ? 'scope-in' : ''}">${c.scope}</span>
+      </div>
+      ${c.footnotes.map(f=>`<div class="compliance-footnote">${f}</div>`).join('')}
+      ${c.conditions.map(cd=>`
+        <div class="compliance-condition">
+          ${cd.documentCode ? `<strong>${cd.documentCode}</strong> — ` : ''}${cd.certificate || ''}
+          ${cd.action ? `<div class="compliance-action">${cd.action}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+  return `
+    <div class="compliance-section">
+      <div class="compliance-title">Import compliance</div>
+      ${items}
+      <div class="compliance-caveat">This only covers customs-side import controls (certificates, licensing, prohibitions, restrictions, sanctions) — it does not cover general product safety/quality standards like UKCA marking or toy safety rules, since those live outside the customs tariff.</div>
+    </div>`;
+}
+
+function renderDetailCard({code, desc, breadcrumb, mfnDuty, ftaBlock, source, compliance}){
+  const backBtn = navStack.length ? '<button class="back-btn" id="backBtn">‹ Back to results</button>' : '';
+
+  let ftaRateText, saveHtml = '', dateLine = '', conditionHtml = '', legalHtml = '';
+  if(ftaBlock.status === 'active'){
+    ftaRateText = ftaBlock.duty.text;
+    dateLine = `<div class="staging">FTA rate in effect since ${fmtDate(ftaBlock.since)}</div>`;
+    if(mfnDuty.numeric!==null && ftaBlock.duty.numeric!==null){
+      const save = mfnDuty.numeric - ftaBlock.duty.numeric;
+      saveHtml = save>0
+        ? `<span class="save-pill">${save.toFixed(1).replace(/\.0$/,'')} pt lower under FTA</span>`
+        : `<span class="save-pill none">No change — already at this rate</span>`;
+    }
+    if(ftaBlock.hasConditions){
+      conditionHtml = `<div class="condition-note">This preferential rate has conditions attached (e.g. certificate/licence requirements) — check the official listing before relying on it.</div>`;
+    }
+    if(ftaBlock.legalAct){
+      const la = ftaBlock.legalAct.attributes;
+      legalHtml = `<div class="legal-line">Legal basis: <a href="${la.regulation_url}" target="_blank" rel="noopener">${la.description} (${la.regulation_code})</a></div>`;
+    }
+  } else if(ftaBlock.status === 'upcoming'){
+    ftaRateText = mfnDuty.text + ' (current — preference not yet active)';
+    dateLine = `<div class="staging future">Preferential rate of ${ftaBlock.duty.text} <strong>takes effect ${fmtDate(ftaBlock.from)}</strong>. Until then, the MFN rate applies.</div>`;
+  } else {
+    ftaRateText = mfnDuty.text + ' (no preference published)';
+    dateLine = `<div class="staging">No India-specific preferential measure is currently published for this line — the standard MFN rate applies to imports from India.</div>`;
+  }
+
+  resultsEl.innerHTML = `
+    ${backBtn}
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${desc}<span class="live-tag">${source === 'oauth' ? 'Live · Authenticated' : 'Live'}</span></div>
+          <div class="card-meta">${breadcrumb || ''}</div>
+        </div>
+        <div class="cth-tag">CTH ${code}</div>
+      </div>
+      <div class="rates">
+        <div class="rate-box">
+          <div class="rl">MFN Rate (Rest of World)</div>
+          <div class="rv">${mfnDuty.text}</div>
+        </div>
+        <div class="rate-box">
+          <div class="rl">FTA Rate (India, CETA)</div>
+          <div class="rv">${ftaRateText}</div>
+        </div>
+      </div>
+      ${saveHtml}
+      ${dateLine}
+      ${conditionHtml}
+      ${legalHtml}
+      ${renderComplianceSection(compliance)}
+      <a class="official-link" href="${SITE_BASE}/commodities/${code}" target="_blank" rel="noopener">View official listing on trade-tariff.service.gov.uk ↗</a>
+    </div>
+  `;
+
+  const back = document.getElementById('backBtn');
+  if(back) back.addEventListener('click', goBack);
+}
+
+function offlineDetailFallback(code){
+  const item = OFFLINE_DATA.find(d=>d.cth===code || code.startsWith(d.cth) || d.cth.startsWith(code));
+  if(!item){
+    resultsEl.innerHTML = emptyHtml('Live lookup failed and this CTH isn\'t in the small offline sample. Check your internet connection and try again.');
+    setStatus('Live API unreachable.', true);
+    return;
+  }
+  const save = item.mfn - item.fta;
+  resultsEl.innerHTML = `
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${item.name}<span class="offline-tag">Offline sample</span></div>
+          <div class="card-meta">Live API unreachable — showing bundled sample data</div>
+        </div>
+        <div class="cth-tag">CTH ${item.cth}</div>
+      </div>
+      <div class="rates">
+        <div class="rate-box"><div class="rl">MFN Rate (Rest of World)</div><div class="rv">${fmtPct(item.mfn)}</div></div>
+        <div class="rate-box"><div class="rl">FTA Rate (India, CETA)</div><div class="rv">${fmtPct(item.fta)}</div></div>
+      </div>
+      ${save>0 ? `<span class="save-pill">${save} pt lower under FTA (sample figure)</span>` : ''}
+      <div class="staging">This is illustrative sample data, not a live rate. Reconnect and search again for the official figure.</div>
+    </div>
+  `;
+  setStatus('Live API unreachable — showing offline sample data.', true);
+}
+
+// ---- Candidate list rendering ----
+
+function renderCandidateList(list, query){
+  if(!list.length){
+    resultsEl.innerHTML = emptyHtml(`No matching commodity found in the UK tariff for “${query}”. Try a shorter or more general term.`);
+    return;
+  }
+  const backBtn = navStack.length ? '<button class="back-btn" id="backBtn">‹ Back</button>' : '';
+  resultsEl.innerHTML = `
+    ${backBtn}
+    <div class="candidate-list">${list.map((c,idx)=>`
+      <div class="candidate-row" data-idx="${idx}">
+        <div>
+          <div class="candidate-desc">${c.description}${c.kind==='group' ? ' <span class="live-tag">Browse section</span>' : ''}</div>
+          <div class="candidate-breadcrumb">${c.breadcrumb || ''}</div>
+        </div>
+        <div class="cth-tag">${c.code}</div>
+      </div>
+    `).join('')}</div>
+  `;
+  const back = document.getElementById('backBtn');
+  if(back) back.addEventListener('click', goBack);
+  resultsEl.querySelectorAll('.candidate-row').forEach(row=>{
+    row.addEventListener('click', async ()=>{
+      const item = list[Number(row.dataset.idx)];
+      navStack.push({list, query});
+      if(item.kind === 'group'){
+        setStatus(`Loading tariff lines under “${item.description}”…`);
+        resultsEl.innerHTML = loadingHtml();
+        try {
+          const nextList = await resolveHeadingGroup(item.code);
+          if(nextList.length === 1){
+            await showDetail(nextList[0].code);
+          } else {
+            renderCandidateList(nextList, query);
+            setStatus(nextList.length
+              ? `${nextList.length} tariff line${nextList.length===1?'':'s'} under “${item.description}” — pick the right one.`
+              : `No declarable tariff lines found under “${item.description}”.`);
+          }
+        } catch(err){
+          console.error(err);
+          navStack.pop();
+          setStatus('Could not load that section — try again.', true);
+          renderCandidateList(list, query);
+        }
+      } else {
+        showDetail(item.code);
+      }
+    });
+  });
+}
+
+function normalizeFuzzyCommodities(commodities){
+  return commodities
+    .map(hit=>hit._source || hit)
+    .filter(c=>c.declarable !== false)
+    .map(c=>({
+      code: c.goods_nomenclature_item_id,
+      description: c.description,
+      breadcrumb: (c.ancestor_descriptions||[]).join(' › ')
+    }));
+}
+
+function normalizeIncludedCommodities(json, contextDesc){
+  return (json.included||[])
+    .filter(i=>i.type==='commodity' && i.attributes.declarable)
+    .map(i=>({
+      code: i.attributes.goods_nomenclature_item_id,
+      description: i.attributes.description_plain || i.attributes.description,
+      breadcrumb: contextDesc || ''
+    }));
+}
+
+// A chapter's own page only lists its headings, not commodities directly — each
+// heading has to be fetched separately to reach declarable tariff lines. These are
+// rendered as "group" candidates that drill down one level rather than showing a
+// rate card, since clicking them can't resolve to a single commodity yet.
+function resolveChapterHeadings(json){
+  const chapterDesc = json.data?.attributes?.description_plain || json.data?.attributes?.description || '';
+  return (json.included||[])
+    .filter(i=>i.type==='heading')
+    .map(i=>({
+      code: (i.attributes.goods_nomenclature_item_id || '').slice(0, 4),
+      description: i.attributes.description_plain || i.attributes.description,
+      breadcrumb: chapterDesc,
+      kind: 'group'
+    }));
+}
+
+async function resolveHeadingGroup(headingCode){
+  const json = await apiGet(`headings/${headingCode}.json`);
+  const contextDesc = json.data?.attributes?.description_plain || json.data?.attributes?.description || '';
+  return normalizeIncludedCommodities(json, contextDesc);
+}
+
+// ---- Search flow ----
+
+async function resolveBroadEndpoint(endpoint, id){
+  const json = await apiGet(`${endpoint}/${id}.json`);
+  if(endpoint === 'chapters'){
+    return resolveChapterHeadings(json);
+  }
+  const contextDesc = json.data?.attributes?.description_plain || json.data?.attributes?.description || '';
+  return normalizeIncludedCommodities(json, contextDesc);
+}
+
+async function doSearch(rawQuery){
+  const q = rawQuery.trim();
+  if(!q) return;
+  searchBtn.disabled = true;
+  setStatus('Searching UK Trade Tariff…');
+  resultsEl.innerHTML = loadingHtml();
+  navStack = [];
+  try {
+    const json = await apiGet(`search?q=${encodeURIComponent(q)}`);
+    const d = json.data;
+
+    if(d.type === 'exact_search'){
+      const {endpoint, id} = d.attributes.entry;
+      if(endpoint === 'commodities'){
+        await showDetail(id);
+        searchBtn.disabled = false;
+        return;
+      }
+      const candidates = await resolveBroadEndpoint(endpoint, id);
+      if(candidates.length === 1 && candidates[0].kind !== 'group'){
+        await showDetail(candidates[0].code);
+      } else {
+        renderCandidateList(candidates, q);
+        setStatus(candidates.length
+          ? `${candidates.length} tariff lines under this code — pick the right one.`
+          : 'No declarable commodity lines found for this code.');
+      }
+      searchBtn.disabled = false;
+      return;
+    }
+
+    // fuzzy_search
+    const match = d.attributes.goods_nomenclature_match || {};
+    const candidates = normalizeFuzzyCommodities(match.commodities || []).slice(0, 20);
+    if(candidates.length === 1){
+      await showDetail(candidates[0].code);
+    } else {
+      renderCandidateList(candidates, q);
+      if(candidates.length){
+        setStatus(`${candidates.length} possible match${candidates.length===1?'':'es'} — pick the right one.`);
+      }
+    }
+  } catch(err){
+    console.error(err);
+    offlineSearchFallback(q);
+  } finally {
+    searchBtn.disabled = false;
+  }
+}
+
+function offlineSearchFallback(q){
+  const ql = q.toLowerCase();
+  const matches = OFFLINE_DATA.filter(d=>d.name.toLowerCase().includes(ql) || d.cth.includes(q));
+  if(!matches.length){
+    resultsEl.innerHTML = emptyHtml('Couldn\'t reach the live UK Trade Tariff API, and no offline sample matches this search. Check your internet connection and try again.');
+    setStatus('Live API unreachable.', true);
+    return;
+  }
+  if(matches.length === 1){
+    offlineDetailFallback(matches[0].cth);
+    return;
+  }
+  resultsEl.innerHTML = `<div class="candidate-list">${matches.map((d,idx)=>`
+    <div class="candidate-row" data-idx="${idx}">
+      <div>
+        <div class="candidate-desc">${d.name}<span class="offline-tag">Offline sample</span></div>
+      </div>
+      <div class="cth-tag">${d.cth}</div>
+    </div>
+  `).join('')}</div>`;
+  resultsEl.querySelectorAll('.candidate-row').forEach(row=>{
+    row.addEventListener('click', ()=>offlineDetailFallback(matches[Number(row.dataset.idx)].cth));
+  });
+  setStatus('Live API unreachable — showing offline sample matches.', true);
+}
+
+// ---- Wiring ----
+
+searchBtn.addEventListener('click', ()=>doSearch(searchInput.value));
+searchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(searchInput.value); });
+
+const exampleRow = document.getElementById('exampleRow');
+exampleRow.innerHTML = EXAMPLES.map(ex=>`<div class="chip" data-q="${ex}">${ex}</div>`).join('');
+exampleRow.querySelectorAll('.chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    searchInput.value = chip.dataset.q;
+    doSearch(chip.dataset.q);
+  });
+});
+
+setStatus('Search for a commodity name or CTH code to fetch its live UK duty rates.');
+</script>
+</body>
+</html>
